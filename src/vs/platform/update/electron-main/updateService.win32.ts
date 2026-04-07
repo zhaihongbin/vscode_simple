@@ -33,7 +33,7 @@ import { asJson, IRequestService } from '../../request/common/request.js';
 import { IApplicationStorageMainService } from '../../storage/electron-main/storageMainService.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { AvailableForDownload, DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
-import { AbstractUpdateService, createUpdateURL, getUpdateRequestHeaders, IUpdateURLOptions, UpdateErrorClassification } from './abstractUpdateService.js';
+import { AbstractUpdateService, createUpdateURL, getUpdateRequestHeaders, hasUpdateURLTemplate, IUpdateURLOptions, resolveUpdate, UpdateErrorClassification } from './abstractUpdateService.js';
 import { INodeProcess } from '../../../base/common/platform.js';
 
 interface IAvailableUpdate {
@@ -65,6 +65,18 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	get cachePath(): Promise<string> {
 		const result = path.join(tmpdir(), `vscode-${this.productService.quality}-${this.productService.target}-${process.arch}`);
 		return mkdir(result, { recursive: true }).then(() => result);
+	}
+
+	private get platform(): string {
+		let platform = `win32-${process.arch}`;
+
+		if (getUpdateType() === UpdateType.Archive) {
+			platform += '-archive';
+		} else if (this.productService.target === 'user') {
+			platform += '-user';
+		}
+
+		return platform;
 	}
 
 	constructor(
@@ -185,15 +197,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	}
 
 	protected buildUpdateFeedUrl(quality: string, commit: string, options?: IUpdateURLOptions): string | undefined {
-		let platform = `win32-${process.arch}`;
-
-		if (getUpdateType() === UpdateType.Archive) {
-			platform += '-archive';
-		} else if (this.productService.target === 'user') {
-			platform += '-user';
-		}
-
-		return createUpdateURL(this.productService.updateUrl!, platform, quality, commit, options);
+		return createUpdateURL(this.productService.updateUrl!, this.platform, quality, commit, options);
 	}
 
 	protected doCheckForUpdates(explicit: boolean, pendingCommit?: string): void {
@@ -203,7 +207,10 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 		const internalOrg = this.getInternalOrg();
 		const background = !explicit && !internalOrg;
-		const url = this.buildUpdateFeedUrl(this.quality, pendingCommit ?? this.productService.commit!, { background, internalOrg });
+		const url = this.buildUpdateFeedUrl(this.quality, pendingCommit ?? this.productService.commit ?? '', { background, internalOrg });
+		const assetPattern = this.productService.updateAssetPattern?.[this.platform];
+		const allowPrerelease = this.productService.updateAllowPrerelease;
+		const shouldUseExternalDownload = !!this.productService.updateUrl && hasUpdateURLTemplate(this.productService.updateUrl);
 
 		// Only set CheckingForUpdates if we're not already in Overwriting state
 		if (this.state.type !== StateType.Overwriting) {
@@ -212,7 +219,8 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 		const headers = getUpdateRequestHeaders(this.productService.version);
 		this.requestService.request({ url, headers, callSite: 'updateService.win32.checkForUpdates' }, CancellationToken.None)
-			.then<IUpdate | null>(asJson)
+			.then<unknown>(asJson)
+			.then(update => resolveUpdate(update, this.platform, this.productService.version, assetPattern, allowPrerelease))
 			.then(update => {
 				const updateType = getUpdateType();
 
@@ -228,8 +236,8 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 					return Promise.resolve(null);
 				}
 
-				if (updateType === UpdateType.Archive) {
-					this.setState(State.AvailableForDownload(update));
+				if (updateType === UpdateType.Archive || shouldUseExternalDownload) {
+					this.setState(State.AvailableForDownload(update, shouldUseExternalDownload ? false : undefined));
 					return Promise.resolve(null);
 				}
 
