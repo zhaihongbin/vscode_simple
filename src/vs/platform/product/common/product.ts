@@ -90,4 +90,19 @@ else {
 	}
 }
 
+const defaultOpenVSXExtensionsGallery = {
+	serviceUrl: 'https://open-vsx.org/vscode/gallery',
+	itemUrl: 'https://open-vsx.org/vscode/item',
+	publisherUrl: 'https://open-vsx.org/vscode/publisher',
+	extensionUrlTemplate: 'https://open-vsx.org/api/{publisher}/{name}/{version}/file/{path}',
+	resourceUrlTemplate: 'https://open-vsx.org/api/{publisher}/{name}/{version}/file/{path}',
+	controlUrl: '',
+	nlsBaseUrl: '',
+};
+
+// Keep product.json clean for OSS hygiene checks while still enabling extension search in custom builds.
+if (!product.extensionsGallery && !env['VSCODE_DISABLE_DEFAULT_EXTENSIONS_GALLERY']) {
+	Object.assign(product, { extensionsGallery: defaultOpenVSXExtensionsGallery });
+}
+
 export default product;

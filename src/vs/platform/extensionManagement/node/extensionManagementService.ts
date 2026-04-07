@@ -340,7 +340,13 @@ export class ExtensionManagementService extends AbstractExtensionManagementServi
 	private async downloadExtension(extension: IGalleryExtension, operation: InstallOperation, verifySignature: boolean, clientTargetPlatform?: TargetPlatform): Promise<{ readonly location: URI; readonly verificationStatus: ExtensionSignatureVerificationCode | undefined }> {
 		if (verifySignature) {
 			const value = this.configurationService.getValue(VerifyExtensionSignatureConfigKey);
-			verifySignature = isBoolean(value) ? value : true;
+			if (isBoolean(value)) {
+				verifySignature = value;
+			} else {
+				// Open VSX doesn't provide the same signature verification guarantees as the Microsoft Marketplace.
+				// Keep verification on by default for other galleries, but do not block Open VSX installs.
+				verifySignature = !/open-vsx\.org/i.test(this.productService.extensionsGallery?.serviceUrl ?? '');
+			}
 		}
 		const { location, verificationStatus } = await this.extensionsDownloader.download(extension, operation, verifySignature, clientTargetPlatform);
 		const shouldRequireSignature = shouldRequireRepositorySignatureFor(extension.private, await this.extensionGalleryManifestService.getExtensionGalleryManifest());

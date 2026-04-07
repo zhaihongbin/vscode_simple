@@ -40,6 +40,7 @@ export class ExtensionGalleryManifestService extends Disposable implements IExte
 		if (!extensionsGallery?.serviceUrl) {
 			return null;
 		}
+		const allPublicRepositorySigned = !/open-vsx\.org/i.test(extensionsGallery.serviceUrl);
 
 		const resources = [
 			{
@@ -220,7 +221,7 @@ export class ExtensionGalleryManifestService extends Disposable implements IExte
 					flags,
 				},
 				signing: {
-					allPublicRepositorySigned: true,
+					allPublicRepositorySigned,
 				}
 			}
 		};

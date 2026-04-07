@@ -7,6 +7,7 @@
 
 import '../editor/editor.all.js';
 
+import './api/browser/extensionHost.contribution.js';
 import './browser/workbench.contribution.js';
 
 //#endregion
@@ -32,6 +33,8 @@ import './browser/actions/widgetNavigationCommands.js';
 //#region --- API Extension Points
 
 import './services/actions/common/menusExtensionPoint.js';
+import './api/common/configurationExtensionPoint.js';
+import './api/browser/viewsExtensionPoint.js';
 
 //#endregion
 
@@ -193,6 +196,12 @@ import './contrib/sash/browser/sash.contribution.js';
 
 // Git
 import './contrib/git/browser/git.contributions.js';
+
+// Source Control
+import './contrib/scm/browser/scm.contribution.js';
+
+// Extensions
+import './contrib/extensions/browser/extensions.contribution.js';
 
 // Process Explorer
 import './contrib/processExplorer/browser/processExplorer.contribution.js';
