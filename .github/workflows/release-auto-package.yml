@@ -31,6 +31,8 @@ jobs:
         run: npm ci
 
       - name: Build Package
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run gulp -- vscode-darwin-arm64-min
 
       - name: Create ZIP Artifact
