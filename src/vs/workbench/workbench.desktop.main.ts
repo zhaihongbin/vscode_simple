@@ -90,7 +90,6 @@ import './services/auxiliaryWindow/electron-browser/auxiliaryWindowService.js';
 import '../platform/extensionManagement/electron-browser/extensionsProfileScannerService.js';
 import '../platform/sandbox/electron-browser/sandboxHelperService.js';
 import '../platform/webContentExtractor/electron-browser/webContentExtractorService.js';
-import './services/browserView/electron-browser/playwrightWorkbenchService.js';
 import './services/process/electron-browser/processService.js';
 import './services/power/electron-browser/powerService.js';
 
@@ -115,15 +114,6 @@ import './contrib/localization/electron-browser/localization.contribution.js';
 // Explorer
 import './contrib/files/electron-browser/fileActions.contribution.js';
 
-// CodeEditor Contributions
-import './contrib/codeEditor/electron-browser/codeEditor.contribution.js';
-
-// Debug
-import './contrib/debug/electron-browser/extensionHostDebugService.js';
-
-// Extensions Management
-import './contrib/extensions/electron-browser/extensions.contribution.js';
-
 // Issues
 import './contrib/issue/electron-browser/issue.contribution.js';
 
@@ -132,9 +122,6 @@ import './contrib/processExplorer/electron-browser/processExplorer.contribution.
 
 // Remote
 import './contrib/remote/electron-browser/remote.contribution.js';
-
-// Terminal
-import './contrib/terminal/electron-browser/terminal.contribution.js';
 
 // Themes
 import './contrib/themes/browser/themes.test.contribution.js';
@@ -148,17 +135,8 @@ import './contrib/tags/electron-browser/tags.contribution.js';
 // Performance
 import './contrib/performance/electron-browser/performance.contribution.js';
 
-// Tasks
-import './contrib/tasks/electron-browser/taskService.js';
-
-// External terminal
-import './contrib/externalTerminal/electron-browser/externalTerminal.contribution.js';
-
 // Webview
 import './contrib/webview/electron-browser/webview.contribution.js';
-
-// Browser
-import './contrib/browserView/electron-browser/browserView.contribution.js';
 
 // Splash
 import './contrib/splash/electron-browser/splash.contribution.js';

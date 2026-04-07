@@ -12,7 +12,35 @@ import { escapeRegExpCharacters } from '../../../base/common/strings.js';
 import { hasKey, Mutable } from '../../../base/common/types.js';
 import { URI } from '../../../base/common/uri.js';
 import { IFileService } from '../../files/common/files.js';
-import { IMcpRemoteServerConfiguration, IMcpServerConfiguration, IMcpStdioServerConfiguration, McpServerType } from '../../mcp/common/mcpPlatformTypes.js';
+
+interface IMcpDevModeConfig {
+	readonly watch?: string | string[];
+	readonly debug?: { readonly type: 'node' } | { readonly type: 'debugpy'; readonly debugpyPath?: string };
+}
+
+const enum McpServerType {
+	LOCAL = 'stdio',
+	REMOTE = 'http',
+}
+
+interface IMcpStdioServerConfiguration {
+	readonly type: McpServerType.LOCAL;
+	readonly command: string;
+	readonly args?: readonly string[];
+	readonly env?: Record<string, string | number | null>;
+	readonly envFile?: string;
+	readonly cwd?: string;
+	readonly dev?: IMcpDevModeConfig;
+}
+
+interface IMcpRemoteServerConfiguration {
+	readonly type: McpServerType.REMOTE;
+	readonly url: string;
+	readonly headers?: Record<string, string>;
+	readonly dev?: IMcpDevModeConfig;
+}
+
+type IMcpServerConfiguration = IMcpStdioServerConfiguration | IMcpRemoteServerConfiguration;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -855,4 +883,3 @@ export async function parsePlugin(
 
 	return { hooks, mcpServers, skills, agents };
 }
-

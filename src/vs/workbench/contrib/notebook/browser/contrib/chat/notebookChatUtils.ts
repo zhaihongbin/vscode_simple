@@ -7,9 +7,18 @@ import { normalizeDriveLetter } from '../../../../../../base/common/labels.js';
 import { basenameOrAuthority } from '../../../../../../base/common/resources.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { localize } from '../../../../../../nls.js';
-import { INotebookOutputVariableEntry } from '../../../../chat/common/attachments/chatVariableEntries.js';
 import { CellUri } from '../../../common/notebookCommon.js';
 import { ICellOutputViewModel, INotebookEditor } from '../../notebookBrowser.js';
+
+export interface INotebookOutputVariableEntry {
+	readonly value: unknown;
+	readonly id: string;
+	readonly name: string;
+	readonly icon?: ThemeIcon;
+	readonly kind: 'notebookOutput';
+	readonly outputIndex: number;
+	readonly mimeType: string;
+}
 
 export const NOTEBOOK_CELL_OUTPUT_MIME_TYPE_LIST_FOR_CHAT_CONST = [
 	'text/plain',

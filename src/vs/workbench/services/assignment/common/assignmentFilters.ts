@@ -11,8 +11,15 @@ import { IDefaultAccountService } from '../../../../platform/defaultAccount/comm
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-import { IChatEntitlementService } from '../../chat/common/chatEntitlementService.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
+
+interface IChatEntitlementSnapshot {
+	readonly sentiment: { readonly hidden: boolean; readonly disabled: boolean };
+	readonly sku: string | undefined;
+	readonly copilotTrackingId: string | undefined;
+	readonly organisations: string[] | undefined;
+	readonly onDidChangeEntitlement: (listener: () => void) => { dispose(): void };
+}
 
 export enum ExtensionsFilter {
 
@@ -87,7 +94,7 @@ export class CopilotAssignmentFilterProvider extends Disposable implements IExpe
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILogService private readonly _logService: ILogService,
 		@IStorageService private readonly _storageService: IStorageService,
-		@IChatEntitlementService private readonly _chatEntitlementService: IChatEntitlementService,
+		private readonly _chatEntitlementService: IChatEntitlementSnapshot | undefined,
 		@IDefaultAccountService private readonly _defaultAccountService: IDefaultAccountService,
 	) {
 		super();
@@ -107,9 +114,11 @@ export class CopilotAssignmentFilterProvider extends Disposable implements IExpe
 			}
 		}));
 
-		this._register(this._chatEntitlementService.onDidChangeEntitlement(() => {
-			this.updateCopilotEntitlementInfo();
-		}));
+		if (this._chatEntitlementService) {
+			this._register(this._chatEntitlementService.onDidChangeEntitlement(() => {
+				this.updateCopilotEntitlementInfo();
+			}));
+		}
 
 		this._register(this._defaultAccountService.onDidChangeCopilotTokenInfo(() => {
 			this.updateCopilotTokenInfo();
@@ -157,9 +166,9 @@ export class CopilotAssignmentFilterProvider extends Disposable implements IExpe
 	}
 
 	private updateCopilotEntitlementInfo() {
-		const newSku = this._chatEntitlementService.sku;
-		const newTrackingId = this._chatEntitlementService.copilotTrackingId;
-		const newInternalOrg = getInternalOrg(this._chatEntitlementService.organisations);
+		const newSku = this._chatEntitlementService?.sku;
+		const newTrackingId = this._chatEntitlementService?.copilotTrackingId;
+		const newInternalOrg = getInternalOrg(this._chatEntitlementService?.organisations);
 
 		if (this.copilotSku === newSku && this.copilotInternalOrg === newInternalOrg && this.copilotTrackingId === newTrackingId) {
 			return;

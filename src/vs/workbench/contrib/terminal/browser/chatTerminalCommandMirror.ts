@@ -14,14 +14,21 @@ import { XtermTerminal } from './xterm/xtermTerminal.js';
 import { TERMINAL_BACKGROUND_COLOR } from '../common/terminalColorRegistry.js';
 import { PANEL_BACKGROUND } from '../../../common/theme.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { ChatContextKeys } from '../../chat/common/actions/chatContextKeys.js';
-import { editorBackground } from '../../../../platform/theme/common/colorRegistry.js';
 import { Color } from '../../../../base/common/color.js';
-import type { IChatTerminalToolInvocationData } from '../../chat/common/chatService/chatService.js';
 import type { IColorTheme } from '../../../../platform/theme/common/themeService.js';
 import { ICurrentPartialCommand } from '../../../../platform/terminal/common/capabilities/commandDetection/terminalCommand.js';
 
-function getChatTerminalBackgroundColor(theme: IColorTheme, contextKeyService: IContextKeyService, storedBackground?: string): Color | undefined {
+interface ITerminalToolInvocationTheme {
+	readonly background?: string;
+	readonly foreground?: string;
+}
+
+interface ITerminalToolInvocationOutput {
+	readonly text?: string;
+	readonly lineCount?: number;
+}
+
+function getChatTerminalBackgroundColor(theme: IColorTheme, _contextKeyService: IContextKeyService, storedBackground?: string): Color | undefined {
 	if (storedBackground) {
 		const color = Color.fromHex(storedBackground);
 		if (color) {
@@ -34,8 +41,7 @@ function getChatTerminalBackgroundColor(theme: IColorTheme, contextKeyService: I
 		return terminalBackground;
 	}
 
-	const isInEditor = ChatContextKeys.inChatEditor.getValue(contextKeyService);
-	return theme.getColor(isInEditor ? editorBackground : PANEL_BACKGROUND);
+	return theme.getColor(PANEL_BACKGROUND);
 }
 
 /**
@@ -593,15 +599,15 @@ export class DetachedTerminalSnapshotMirror extends Disposable {
 	private _detachedTerminal: Promise<IDetachedTerminalInstance> | undefined;
 	private _attachedContainer: HTMLElement | undefined;
 
-	private _output: IChatTerminalToolInvocationData['terminalCommandOutput'] | undefined;
+	private _output: ITerminalToolInvocationOutput | undefined;
 	private _container: HTMLElement | undefined;
 	private _dirty = true;
 	private _lastRenderedLineCount: number | undefined;
 	private _lastRenderedMaxColumnWidth: number | undefined;
 
 	constructor(
-		output: IChatTerminalToolInvocationData['terminalCommandOutput'] | undefined,
-		private readonly _getTheme: () => IChatTerminalToolInvocationData['terminalTheme'] | undefined,
+		output: ITerminalToolInvocationOutput | undefined,
+		private readonly _getTheme: () => ITerminalToolInvocationTheme | undefined,
 		@ITerminalService private readonly _terminalService: ITerminalService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 	) {
@@ -637,7 +643,7 @@ export class DetachedTerminalSnapshotMirror extends Disposable {
 		return this._detachedTerminal;
 	}
 
-	public setOutput(output: IChatTerminalToolInvocationData['terminalCommandOutput'] | undefined): void {
+	public setOutput(output: ITerminalToolInvocationOutput | undefined): void {
 		this._output = output;
 		this._dirty = true;
 	}
