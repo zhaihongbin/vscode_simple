@@ -14,6 +14,9 @@ jobs:
     name: Build Darwin ARM64 Package
     runs-on: macos-14
     timeout-minutes: 180
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout
@@ -31,8 +34,6 @@ jobs:
         run: npm ci
 
       - name: Build Package
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run gulp -- vscode-darwin-arm64-min
 
       - name: Create ZIP Artifact
