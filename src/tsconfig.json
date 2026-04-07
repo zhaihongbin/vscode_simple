@@ -33,6 +33,25 @@
 		"./vscode-dts/vscode.d.ts"
 	],
 	"exclude": [
-		"vs/workbench/contrib/webview/browser/pre/service-worker.js"
+		"vs/workbench/contrib/webview/browser/pre/service-worker.js",
+		"./vs/platform/agentHost/**/*",
+		"./vs/platform/mcp/**/*",
+		"./vs/sessions/**/*",
+		"./vs/workbench/contrib/chat/**/*",
+		"./vs/workbench/contrib/inlineChat/**/*",
+		"./vs/workbench/contrib/mcp/**/*",
+		"./vs/workbench/contrib/imageCarousel/**/*",
+		"./vs/workbench/contrib/terminalContrib/chat/**/*",
+		"./vs/workbench/services/chat/**/*",
+		"./vs/workbench/services/mcp/**/*",
+		"./vs/workbench/test/**/*",
+		"./vs/sessions/test/**/*",
+		"./vs/platform/agentHost/test/**/*",
+		"./vs/platform/mcp/test/**/*",
+		"./vs/platform/userDataSync/test/**/*",
+		"./vs/workbench/services/accounts/browser/defaultAccount.ts",
+		"./vs/workbench/services/aiEmbeddingVector/**/*",
+		"./vs/workbench/services/aiRelatedInformation/**/*",
+		"./vs/workbench/services/aiSettingsSearch/**/*"
 	]
 }
