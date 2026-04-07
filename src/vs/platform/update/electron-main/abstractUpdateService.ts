@@ -19,7 +19,7 @@ import { IRequestService } from '../../request/common/request.js';
 import { StorageScope, StorageTarget } from '../../storage/common/storage.js';
 import { IApplicationStorageMainService } from '../../storage/electron-main/storageMainService.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
-import { AvailableForDownload, DisablementReason, IUpdateService, State, StateType, UpdateType } from '../common/update.js';
+import { AvailableForDownload, DisablementReason, IUpdate, IUpdateService, State, StateType, UpdateType } from '../common/update.js';
 
 const LAST_KNOWN_VERSION_STORAGE_KEY = 'abstractUpdateService/lastKnownVersion';
 
@@ -28,8 +28,168 @@ export interface IUpdateURLOptions {
 	readonly internalOrg?: string;
 }
 
+const UPDATE_URL_TEMPLATE_REGEX = /\{(platform|quality|commit)\}/;
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
+function asString(value: unknown): string | undefined {
+	return typeof value === 'string' ? value : undefined;
+}
+
+function normalizeTagVersion(value: string): string {
+	return value.replace(/^v/i, '');
+}
+
+function getDefaultAssetPatterns(platform: string): readonly RegExp[] {
+	switch (platform) {
+		case 'darwin-arm64':
+			return [/darwin-arm64/i, /macos-arm64/i, /aarch64/i];
+		case 'darwin':
+			return [/darwin(?!-arm64)/i, /darwin-x64/i, /macos-x64/i];
+		case 'linux-x64':
+			return [/linux[-_]?x64/i, /linux.*amd64/i];
+		case 'linux-arm64':
+			return [/linux[-_]?arm64/i, /linux.*aarch64/i];
+		case 'win32-x64':
+			return [/win(32|dows)?[-_]?x64/i];
+		case 'win32-x64-user':
+			return [/win(32|dows)?[-_]?x64[-_]?user/i, /win(32|dows)?[-_]?user/i];
+		case 'win32-x64-archive':
+			return [/win(32|dows)?[-_]?x64[-_]?archive/i, /\.zip$/i];
+		case 'win32-arm64':
+			return [/win(32|dows)?[-_]?arm64/i];
+		case 'win32-arm64-user':
+			return [/win(32|dows)?[-_]?arm64[-_]?user/i];
+		case 'win32-arm64-archive':
+			return [/win(32|dows)?[-_]?arm64[-_]?archive/i, /\.zip$/i];
+		default:
+			return [];
+	}
+}
+
+function parseUpdateTimestamp(value: unknown): number | undefined {
+	if (typeof value === 'number') {
+		return value;
+	}
+
+	if (typeof value === 'string') {
+		const parsed = Date.parse(value);
+		return Number.isFinite(parsed) ? parsed : undefined;
+	}
+
+	return undefined;
+}
+
+function parseNativeUpdateResponse(response: unknown): IUpdate | null {
+	if (!isObjectRecord(response)) {
+		return null;
+	}
+
+	const version = asString(response.version);
+	const productVersion = asString(response.productVersion);
+	const url = asString(response.url);
+
+	if (!version || !productVersion || !url) {
+		return null;
+	}
+
+	return {
+		version,
+		productVersion,
+		url,
+		timestamp: parseUpdateTimestamp(response.timestamp),
+		sha256hash: asString(response.sha256hash)
+	};
+}
+
+function parseGitHubReleaseResponse(response: unknown, platform: string, currentProductVersion: string, assetPattern: string | undefined, allowPrerelease: boolean): IUpdate | null {
+	if (!isObjectRecord(response)) {
+		return null;
+	}
+
+	if (response.draft === true || (response.prerelease === true && !allowPrerelease)) {
+		return null;
+	}
+
+	const assets = response.assets;
+	if (!Array.isArray(assets) || assets.length === 0) {
+		return null;
+	}
+
+	const patterns: RegExp[] = [];
+	if (assetPattern) {
+		try {
+			patterns.push(new RegExp(assetPattern, 'i'));
+		} catch {
+			// ignore malformed user-provided regex
+		}
+	}
+	patterns.push(...getDefaultAssetPatterns(platform));
+
+	const assetRecords = assets.filter(isObjectRecord);
+	const matchAssetByPattern = (pattern: RegExp): Record<string, unknown> | undefined => assetRecords.find(asset => {
+		const assetName = asString(asset.name);
+		return !!assetName && pattern.test(assetName);
+	});
+
+	let matchedAsset: Record<string, unknown> | undefined;
+	for (const pattern of patterns) {
+		matchedAsset = matchAssetByPattern(pattern);
+		if (matchedAsset) {
+			break;
+		}
+	}
+	if (!matchedAsset) {
+		matchedAsset = assetRecords.find(asset => typeof asset.browser_download_url === 'string');
+	}
+	if (!matchedAsset) {
+		return null;
+	}
+
+	const downloadUrl = asString(matchedAsset.browser_download_url);
+	if (!downloadUrl) {
+		return null;
+	}
+
+	const tagName = asString(response.tag_name) ?? asString(response.name);
+	const normalizedTag = tagName ? normalizeTagVersion(tagName) : undefined;
+	const currentVersion = normalizeTagVersion(currentProductVersion);
+	if (normalizedTag && normalizedTag === currentVersion) {
+		return null;
+	}
+
+	const assetName = asString(matchedAsset.name) ?? 'latest';
+	const resolvedProductVersion = normalizedTag ?? currentProductVersion;
+	return {
+		version: tagName ?? resolvedProductVersion ?? assetName,
+		productVersion: resolvedProductVersion ?? assetName,
+		url: downloadUrl,
+		timestamp: parseUpdateTimestamp(response.published_at ?? response.created_at)
+	};
+}
+
+export function hasUpdateURLTemplate(baseUpdateUrl: string): boolean {
+	return UPDATE_URL_TEMPLATE_REGEX.test(baseUpdateUrl);
+}
+
+export function resolveUpdate(baseResponse: unknown, platform: string, currentProductVersion: string, assetPattern?: string, allowPrerelease?: boolean): IUpdate | null {
+	const parsedNativeUpdate = parseNativeUpdateResponse(baseResponse);
+	if (parsedNativeUpdate) {
+		return parsedNativeUpdate;
+	}
+
+	return parseGitHubReleaseResponse(baseResponse, platform, currentProductVersion, assetPattern, Boolean(allowPrerelease));
+}
+
 export function createUpdateURL(baseUpdateUrl: string, platform: string, quality: string, commit: string, options?: IUpdateURLOptions): string {
-	const url = new URL(`${baseUpdateUrl}/api/update/${platform}/${quality}/${commit}`);
+	const url = hasUpdateURLTemplate(baseUpdateUrl)
+		? new URL(baseUpdateUrl
+			.replaceAll('{platform}', platform)
+			.replaceAll('{quality}', quality)
+			.replaceAll('{commit}', commit))
+		: new URL(`${baseUpdateUrl}/api/update/${platform}/${quality}/${commit}`);
 
 	if (options?.background) {
 		url.searchParams.set('bg', 'true');
@@ -150,7 +310,8 @@ export abstract class AbstractUpdateService implements IUpdateService {
 			return;
 		}
 
-		if (!this.productService.updateUrl || !this.productService.commit) {
+		const hasTemplateUpdateUrl = !!this.productService.updateUrl && hasUpdateURLTemplate(this.productService.updateUrl);
+		if (!this.productService.updateUrl || (!this.productService.commit && !hasTemplateUpdateUrl)) {
 			this.setState(State.Disabled(DisablementReason.MissingConfiguration));
 			this.logService.info('update#ctor - updates are disabled as there is no update URL');
 			return;
@@ -172,7 +333,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 			return;
 		}
 
-		if (!this.buildUpdateFeedUrl(quality, this.productService.commit!)) {
+		if (!this.buildUpdateFeedUrl(quality, this.productService.commit ?? '')) {
 			this.setState(State.Disabled(DisablementReason.InvalidConfiguration));
 			this.logService.info('update#ctor - updates are disabled as the update URL is badly formed');
 			return;
@@ -408,7 +569,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 			return undefined;
 		}
 
-		const url = this.buildUpdateFeedUrl(this.quality, commit ?? this.productService.commit!, { internalOrg: this.getInternalOrg() });
+		const url = this.buildUpdateFeedUrl(this.quality, commit ?? this.productService.commit ?? '', { internalOrg: this.getInternalOrg() });
 
 		if (!url) {
 			return undefined;

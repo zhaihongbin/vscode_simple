@@ -92,6 +92,8 @@ export interface IProductConfiguration {
 
 	readonly downloadUrl?: string;
 	readonly updateUrl?: string;
+	readonly updateAssetPattern?: IStringDictionary<string>;
+	readonly updateAllowPrerelease?: boolean;
 	readonly webUrl?: string;
 	readonly webEndpointUrlTemplate?: string;
 	readonly webviewContentExternalBaseUrlTemplate?: string;

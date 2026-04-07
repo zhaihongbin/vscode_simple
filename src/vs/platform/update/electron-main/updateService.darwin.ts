@@ -13,18 +13,27 @@ import { IConfigurationService } from '../../configuration/common/configuration.
 import { IEnvironmentMainService } from '../../environment/electron-main/environmentMainService.js';
 import { ILifecycleMainService, IRelaunchHandler, IRelaunchOptions } from '../../lifecycle/electron-main/lifecycleMainService.js';
 import { ILogService } from '../../log/common/log.js';
+import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
 import { IProductService } from '../../product/common/productService.js';
 import { asJson, IRequestService } from '../../request/common/request.js';
 import { IApplicationStorageMainService } from '../../storage/electron-main/storageMainService.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { AvailableForDownload, IUpdate, State, StateType, UpdateType } from '../common/update.js';
 import { IMeteredConnectionService } from '../../meteredConnection/common/meteredConnection.js';
-import { AbstractUpdateService, createUpdateURL, getUpdateRequestHeaders, IUpdateURLOptions, UpdateErrorClassification } from './abstractUpdateService.js';
+import { AbstractUpdateService, createUpdateURL, getUpdateRequestHeaders, hasUpdateURLTemplate, IUpdateURLOptions, resolveUpdate, UpdateErrorClassification } from './abstractUpdateService.js';
 import { INodeProcess } from '../../../base/common/platform.js';
 
 export class DarwinUpdateService extends AbstractUpdateService implements IRelaunchHandler {
 
 	private readonly disposables = new DisposableStore();
+
+	private get assetID(): string {
+		return this.productService.darwinUniversalAssetId ?? (process.arch === 'x64' ? 'darwin' : 'darwin-arm64');
+	}
+
+	private get shouldUseHttpOnlyUpdateFlow(): boolean {
+		return !!this.productService.updateUrl && hasUpdateURLTemplate(this.productService.updateUrl);
+	}
 
 	@memoize private get onRawError(): Event<string> { return Event.fromNodeEventEmitter(electron.autoUpdater, 'error', (_, message) => message); }
 	@memoize private get onRawCheckingForUpdate(): Event<void> { return Event.fromNodeEventEmitter<void>(electron.autoUpdater, 'checking-for-update'); }
@@ -45,6 +54,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		@IEnvironmentMainService environmentMainService: IEnvironmentMainService,
 		@IRequestService requestService: IRequestService,
 		@ILogService logService: ILogService,
+		@INativeHostMainService private readonly nativeHostMainService: INativeHostMainService,
 		@IProductService productService: IProductService,
 		@IApplicationStorageMainService applicationStorageMainService: IApplicationStorageMainService,
 		@IMeteredConnectionService meteredConnectionService: IMeteredConnectionService,
@@ -100,11 +110,13 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 	}
 
 	protected buildUpdateFeedUrl(quality: string, commit: string, options?: IUpdateURLOptions): string | undefined {
-		const assetID = this.productService.darwinUniversalAssetId ?? (process.arch === 'x64' ? 'darwin' : 'darwin-arm64');
-		const url = createUpdateURL(this.productService.updateUrl!, assetID, quality, commit, options);
+		const url = createUpdateURL(this.productService.updateUrl!, this.assetID, quality, commit, options);
+		if (this.shouldUseHttpOnlyUpdateFlow || (process as INodeProcess).isEmbeddedApp) {
+			return url;
+		}
 		const headers = getUpdateRequestHeaders(this.productService.version);
 		try {
-			this.logService.trace('update#buildUpdateFeedUrl - setting feed URL for Electron autoUpdater', { url, assetID, quality, commit, headers });
+			this.logService.trace('update#buildUpdateFeedUrl - setting feed URL for Electron autoUpdater', { url, assetID: this.assetID, quality, commit, headers });
 			electron.autoUpdater.setFeedURL({ url, headers });
 		} catch (e) {
 			// application is very likely not signed
@@ -133,9 +145,15 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 
 		const internalOrg = this.getInternalOrg();
 		const background = !explicit && !internalOrg;
-		const url = this.buildUpdateFeedUrl(this.quality, pendingCommit ?? this.productService.commit!, { background, internalOrg });
+		const url = this.buildUpdateFeedUrl(this.quality, pendingCommit ?? this.productService.commit ?? '', { background, internalOrg });
 
 		if (!url) {
+			return;
+		}
+
+		if (this.shouldUseHttpOnlyUpdateFlow) {
+			this.logService.info('update#doCheckForUpdates - custom update endpoint: checking without auto-download');
+			this.checkForUpdateNoDownload(url, /* canInstall */ false);
 			return;
 		}
 
@@ -171,7 +189,10 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 			const statusCode = context.res.statusCode;
 			this.logService.trace('update#checkForUpdateNoDownload - response', { statusCode });
 
-			const update = await asJson<IUpdate>(context);
+			const response = await asJson<unknown>(context);
+			const assetPattern = this.productService.updateAssetPattern?.[this.assetID];
+			const allowPrerelease = this.productService.updateAllowPrerelease;
+			const update = resolveUpdate(response, this.assetID, this.productService.version, assetPattern, allowPrerelease);
 			if (!update || !update.url || !update.version || !update.productVersion) {
 				this.logService.trace('update#checkForUpdateNoDownload - no update available');
 				const notAvailable = this.state.type === StateType.CheckingForUpdates && this.state.explicit;
@@ -219,6 +240,14 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 	}
 
 	protected override async doDownloadUpdate(state: AvailableForDownload): Promise<void> {
+		if (this.shouldUseHttpOnlyUpdateFlow) {
+			if (state.update.url) {
+				this.nativeHostMainService.openExternal(undefined, state.update.url);
+			}
+			this.setState(State.Idle(UpdateType.Archive));
+			return;
+		}
+
 		// Rebuild feed URL and trigger download via Electron's auto-updater
 		this.buildUpdateFeedUrl(this.quality!, state.update.version, { internalOrg: this.getInternalOrg() });
 		this.setState(State.CheckingForUpdates(true));
