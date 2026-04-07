@@ -1,0 +1,55 @@
+name: Release Auto Package
+
+on:
+  push:
+    branches:
+      - release
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-darwin-arm64:
+    name: Build Darwin ARM64 Package
+    runs-on: macos-14
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Package
+        run: npm run gulp -- vscode-darwin-arm64-min
+
+      - name: Create ZIP Artifact
+        run: |
+          BUILD_DIR="../VSCode-darwin-arm64"
+          APP_PATH="$BUILD_DIR/Code - OSS.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "App not found: $APP_PATH"
+            ls -la "$BUILD_DIR" || true
+            exit 1
+          fi
+          ZIP_NAME="Code-OSS-darwin-arm64-${GITHUB_SHA::8}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_NAME"
+          echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_ENV"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-oss-darwin-arm64-${{ github.sha }}
+          path: ${{ env.ZIP_NAME }}
+          if-no-files-found: error
+          retention-days: 14
