@@ -74,6 +74,8 @@ import './services/environment/electron-browser/shellEnvironmentService.js';
 import './services/integrity/electron-browser/integrityService.js';
 import './services/workingCopy/electron-browser/workingCopyBackupService.js';
 import './services/checksum/electron-browser/checksumService.js';
+import '../platform/remote/electron-browser/sharedProcessTunnelService.js';
+import './services/tunnel/electron-browser/tunnelService.js';
 import '../platform/diagnostics/electron-browser/diagnosticsService.js';
 import '../platform/profiling/electron-browser/profilingService.js';
 import '../platform/telemetry/electron-browser/customEndpointTelemetryService.js';

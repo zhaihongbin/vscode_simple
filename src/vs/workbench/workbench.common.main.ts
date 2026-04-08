@@ -90,6 +90,7 @@ import './services/notification/common/notificationService.js';
 import './services/userDataSync/common/userDataSyncUtil.js';
 import './services/userDataProfile/browser/userDataProfileImportExportService.js';
 import './services/userDataProfile/browser/userDataProfileManagement.js';
+import './services/remote/common/remoteExtensionsScanner.js';
 import './services/terminal/common/embedderTerminalService.js';
 import './services/workingCopy/common/workingCopyService.js';
 import './services/workingCopy/common/workingCopyFileService.js';
@@ -121,6 +122,7 @@ import './services/editor/browser/editorPaneService.js';
 import './services/editor/common/customEditorLabelService.js';
 import './services/dataChannel/browser/dataChannelService.js';
 import './contrib/noai/browser/noAiChatServices.js';
+import './contrib/noai/browser/noAiDebugServices.js';
 import './services/log/common/defaultLogLevels.js';
 
 import { InstantiationType, registerSingleton } from '../platform/instantiation/common/extensions.js';
@@ -236,6 +238,7 @@ import './contrib/markers/browser/markers.contribution.js';
 // Extensions
 import './contrib/extensions/browser/extensions.contribution.js';
 import './contrib/extensions/browser/extensionsViewlet.js';
+import './contrib/inlineCompletions/browser/renameSymbolTrackerService.js';
 
 // Process Explorer
 import './contrib/processExplorer/browser/processExplorer.contribution.js';
