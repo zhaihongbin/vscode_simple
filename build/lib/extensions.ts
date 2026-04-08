@@ -306,6 +306,9 @@ const excludedExtensions = [
 	'vscode-colorize-tests',
 	'vscode-colorize-perf-tests',
 	'vscode-test-resolver',
+	'debug-auto-launch',
+	'debug-server-ready',
+	'tunnel-forwarding',
 	'ms-vscode.node-debug',
 	'ms-vscode.node-debug2',
 ];
