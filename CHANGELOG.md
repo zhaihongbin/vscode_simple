@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/zhaihongbin/vscode_simple/compare/v1.0.0...v1.0.1) (2026-04-08)
+
+
+### Bug Fixes
+
+* **noai:** trigger release packaging after release-versioning ([ce913f0](https://github.com/zhaihongbin/vscode_simple/commit/ce913f0317d1968230deccc8fc1f1ef7de5ae42f))
+
 ## 1.0.0 (2026-04-08)
 
 
