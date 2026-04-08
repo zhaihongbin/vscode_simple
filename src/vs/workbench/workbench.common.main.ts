@@ -181,6 +181,9 @@ import './contrib/speech/browser/speech.contribution.js';
 // Logs
 import './contrib/logs/common/logs.contribution.js';
 
+// Quick Access / Command Palette
+import './contrib/quickaccess/browser/quickAccess.contribution.js';
+
 // Explorer
 import './contrib/files/browser/explorerViewlet.js';
 import './contrib/files/browser/fileActions.contribution.js';
