@@ -21,6 +21,11 @@
 
 1. `npm run gulp -- vscode-darwin-arm64-min`
 
+此外，在非 `release` 分支（如 `feature/*`）完成开发后，默认也必须主动执行一次本地打包验证：
+
+1. `npm run gulp -- vscode-darwin-arm64-min`
+2. 默认仅产出可运行 `.app` 目录，不额外生成 `.zip` 压缩包（除非用户明确要求）
+
 如校验失败，不得宣告完成，必须继续修复直到通过，或明确说明阻塞原因。
 
 ## Git 自动提交规则
