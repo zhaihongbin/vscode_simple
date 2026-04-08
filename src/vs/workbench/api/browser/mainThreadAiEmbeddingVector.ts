@@ -3,39 +3,36 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CancellationToken } from '../../../base/common/cancellation.js';
-import { Disposable, DisposableMap } from '../../../base/common/lifecycle.js';
-import { ExtHostAiEmbeddingVectorShape, ExtHostContext, MainContext, MainThreadAiEmbeddingVectorShape } from '../common/extHost.protocol.js';
-import { IAiEmbeddingVectorProvider, IAiEmbeddingVectorService } from '../../services/aiEmbeddingVector/common/aiEmbeddingVectorService.js';
-import { IExtHostContext, extHostNamedCustomer } from '../../services/extensions/common/extHostCustomers.js';
+import { Event } from '../../../base/common/event.js';
+import { extHostNamedCustomer } from '../../services/extensions/common/extHostCustomers.js';
+import { MainContext } from '../common/extHost.protocol.js';
+
+const noop = () => undefined;
+
+function withNoAiFallback<T extends object>(target: T): T {
+	return new Proxy(target, {
+		get(obj, prop, receiver) {
+			if (Reflect.has(obj, prop)) {
+				return Reflect.get(obj, prop, receiver);
+			}
+
+			if (typeof prop === 'string' && (prop.startsWith('onDid') || prop.startsWith('onWill'))) {
+				return Event.None;
+			}
+
+			return noop;
+		},
+	});
+}
 
 @extHostNamedCustomer(MainContext.MainThreadAiEmbeddingVector)
-export class MainThreadAiEmbeddingVector extends Disposable implements MainThreadAiEmbeddingVectorShape {
-	private readonly _proxy: ExtHostAiEmbeddingVectorShape;
-	private readonly _registrations = this._register(new DisposableMap<number>());
+export class MainThreadAiEmbeddingVector {
 
-	constructor(
-		context: IExtHostContext,
-		@IAiEmbeddingVectorService private readonly _AiEmbeddingVectorService: IAiEmbeddingVectorService,
-	) {
-		super();
-		this._proxy = context.getProxy(ExtHostContext.ExtHostAiEmbeddingVector);
+	constructor() {
+		return withNoAiFallback(this);
 	}
 
-	$registerAiEmbeddingVectorProvider(model: string, handle: number): void {
-		const provider: IAiEmbeddingVectorProvider = {
-			provideAiEmbeddingVector: (strings: string[], token: CancellationToken) => {
-				return this._proxy.$provideAiEmbeddingVector(
-					handle,
-					strings,
-					token
-				);
-			},
-		};
-		this._registrations.set(handle, this._AiEmbeddingVectorService.registerAiEmbeddingVectorProvider(model, provider));
-	}
-
-	$unregisterAiEmbeddingVectorProvider(handle: number): void {
-		this._registrations.deleteAndDispose(handle);
+	dispose(): void {
+		return;
 	}
 }

@@ -136,11 +136,25 @@ import './contrib/performance/browser/performance.web.contribution.js';
 // Preferences
 import './contrib/preferences/browser/keyboardLayoutPicker.js';
 
+// Debug
+import './contrib/debug/browser/extensionHostDebugService.js';
+
 // Welcome Banner
 import './contrib/welcomeBanner/browser/welcomeBanner.contribution.js';
 
 // Webview
 import './contrib/webview/browser/webview.web.contribution.js';
+
+// Extensions Management
+import './contrib/extensions/browser/extensions.web.contribution.js';
+
+// Terminal
+import './contrib/terminal/browser/terminal.web.contribution.js';
+import './contrib/externalTerminal/browser/externalTerminal.contribution.js';
+import './contrib/terminal/browser/terminalInstanceService.js';
+
+// Tasks
+import './contrib/tasks/browser/taskService.js';
 
 // Tags
 import './contrib/tags/browser/workspaceTagsService.js';
@@ -156,5 +170,8 @@ import './contrib/remote/browser/remoteStartEntry.contribution.js';
 
 // Process Explorer
 import './contrib/processExplorer/browser/processExplorer.web.contribution.js';
+
+// Browser View
+import './contrib/browserView/browser/browserView.contribution.js';
 
 //#endregion

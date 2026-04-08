@@ -75,6 +75,7 @@ import './services/textresourceProperties/common/textResourcePropertiesService.j
 import './services/textfile/common/textEditorService.js';
 import './services/language/common/languageService.js';
 import './services/model/common/modelService.js';
+import './services/notebook/common/notebookDocumentService.js';
 import './services/commands/common/commandService.js';
 import './services/themes/browser/workbenchThemeService.js';
 import './services/label/common/labelService.js';
@@ -122,6 +123,7 @@ import './services/userAttention/browser/userAttentionBrowser.js';
 import './services/editor/browser/editorPaneService.js';
 import './services/editor/common/customEditorLabelService.js';
 import './services/dataChannel/browser/dataChannelService.js';
+import './contrib/noai/browser/noAiChatServices.js';
 import './services/log/common/defaultLogLevels.js';
 
 import { InstantiationType, registerSingleton } from '../platform/instantiation/common/extensions.js';
@@ -170,14 +172,34 @@ registerSingleton(IWebWorkerService, WebWorkerService, InstantiationType.Delayed
 
 //#region --- workbench contributions
 
+// Default Account
+import './services/accounts/browser/defaultAccount.js';
+
 // Telemetry
 import './contrib/telemetry/browser/telemetry.contribution.js';
+
+// Preferences
+import './contrib/preferences/browser/preferences.contribution.js';
+import './contrib/preferences/browser/keybindingsEditorContribution.js';
+import './contrib/preferences/browser/preferencesSearch.js';
 
 // Performance
 import './contrib/performance/browser/performance.contribution.js';
 
+// Notebook
+import './contrib/notebook/browser/notebook.contribution.js';
+
 // Speech
 import './contrib/speech/browser/speech.contribution.js';
+
+// Interactive
+import './contrib/interactive/browser/interactive.contribution.js';
+
+// repl
+import './contrib/replNotebook/browser/repl.contribution.js';
+
+// Testing
+import './contrib/testing/browser/testing.contribution.js';
 
 // Logs
 import './contrib/logs/common/logs.contribution.js';
@@ -193,6 +215,13 @@ import './contrib/files/browser/files.contribution.js';
 // Bulk Edit
 import './contrib/bulkEdit/browser/bulkEditService.js';
 import './contrib/bulkEdit/browser/preview/bulkEdit.contribution.js';
+
+// Search
+import './contrib/search/browser/search.contribution.js';
+import './contrib/search/browser/searchView.js';
+
+// Search Editor
+import './contrib/searchEditor/browser/searchEditor.contribution.js';
 
 
 // Sash
@@ -212,8 +241,12 @@ import './contrib/debug/browser/callStackEditorContribution.js';
 import './contrib/debug/browser/repl.js';
 import './contrib/debug/browser/debugViewlet.js';
 
+// Markers
+import './contrib/markers/browser/markers.contribution.js';
+
 // Extensions
 import './contrib/extensions/browser/extensions.contribution.js';
+import './contrib/extensions/browser/extensionsViewlet.js';
 
 // Process Explorer
 import './contrib/processExplorer/browser/processExplorer.contribution.js';
@@ -249,8 +282,14 @@ import './contrib/output/browser/outputView.js';
 // Terminal
 import './contrib/terminal/terminal.all.js';
 
+// External terminal
+import './contrib/externalTerminal/browser/externalTerminal.contribution.js';
+
 // Relauncher
 import './contrib/relauncher/browser/relauncher.contribution.js';
+
+// Tasks
+import './contrib/tasks/browser/task.contribution.js';
 
 // Remote
 import './contrib/remote/common/remote.contribution.js';
@@ -258,6 +297,9 @@ import './contrib/remote/browser/remote.contribution.js';
 
 // Emmet
 import './contrib/emmet/browser/emmet.contribution.js';
+
+// CodeEditor Contributions
+import './contrib/codeEditor/browser/codeEditor.contribution.js';
 
 // Markdown
 import './contrib/markdown/browser/markdown.contribution.js';
@@ -283,11 +325,15 @@ import './contrib/inlayHints/browser/inlayHintsAccessibilty.js';
 // Themes
 import './contrib/themes/browser/themes.contribution.js';
 
+// Update
+import './contrib/update/browser/update.contribution.js';
+
 // Surveys
 import './contrib/surveys/browser/nps.contribution.js';
 import './contrib/surveys/browser/languageSurveys.contribution.js';
 
 // Welcome
+import './contrib/welcomeGettingStarted/browser/gettingStarted.contribution.js';
 import './contrib/welcomeWalkthrough/browser/walkThrough.contribution.js';
 import './contrib/welcomeViews/common/viewsWelcome.contribution.js';
 import './contrib/welcomeViews/common/newFile.contribution.js';
@@ -307,6 +353,9 @@ import './contrib/languageDetection/browser/languageDetection.contribution.js';
 
 // Language Status
 import './contrib/languageStatus/browser/languageStatus.contribution.js';
+
+// Authentication
+import './contrib/authentication/browser/authentication.contribution.js';
 
 // User Data Sync
 import './contrib/userDataSync/browser/userDataSync.contribution.js';
@@ -340,6 +389,9 @@ import './contrib/accessibilitySignals/browser/accessibilitySignal.contribution.
 
 // Bracket Pair Colorizer 2 Telemetry
 import './contrib/bracketPairColorizer2Telemetry/browser/bracketPairColorizer2Telemetry.contribution.js';
+
+// Accessibility
+import './contrib/accessibility/browser/accessibility.contribution.js';
 
 // Metered Connection
 import './contrib/meteredConnection/browser/meteredConnection.contribution.js';

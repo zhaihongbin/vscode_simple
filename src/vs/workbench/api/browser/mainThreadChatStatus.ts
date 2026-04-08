@@ -3,31 +3,36 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../base/common/lifecycle.js';
-import { IChatStatusItemService } from '../../contrib/chat/browser/chatStatus/chatStatusItemService.js';
-import { IExtHostContext, extHostNamedCustomer } from '../../services/extensions/common/extHostCustomers.js';
-import { ChatStatusItemDto, MainContext, MainThreadChatStatusShape } from '../common/extHost.protocol.js';
+import { Event } from '../../../base/common/event.js';
+import { extHostNamedCustomer } from '../../services/extensions/common/extHostCustomers.js';
+import { MainContext } from '../common/extHost.protocol.js';
+
+const noop = () => undefined;
+
+function withNoAiFallback<T extends object>(target: T): T {
+	return new Proxy(target, {
+		get(obj, prop, receiver) {
+			if (Reflect.has(obj, prop)) {
+				return Reflect.get(obj, prop, receiver);
+			}
+
+			if (typeof prop === 'string' && (prop.startsWith('onDid') || prop.startsWith('onWill'))) {
+				return Event.None;
+			}
+
+			return noop;
+		},
+	});
+}
 
 @extHostNamedCustomer(MainContext.MainThreadChatStatus)
-export class MainThreadChatStatus extends Disposable implements MainThreadChatStatusShape {
+export class MainThreadChatStatus {
 
-	constructor(
-		_extHostContext: IExtHostContext,
-		@IChatStatusItemService private readonly _chatStatusItemService: IChatStatusItemService,
-	) {
-		super();
+	constructor() {
+		return withNoAiFallback(this);
 	}
 
-	$setEntry(id: string, entry: ChatStatusItemDto): void {
-		this._chatStatusItemService.setOrUpdateEntry({
-			id,
-			label: entry.title,
-			description: entry.description,
-			detail: entry.detail,
-		});
-	}
-
-	$disposeEntry(id: string): void {
-		this._chatStatusItemService.deleteEntry(id);
+	dispose(): void {
+		return;
 	}
 }

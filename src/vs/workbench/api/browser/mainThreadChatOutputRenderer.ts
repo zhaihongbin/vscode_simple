@@ -3,56 +3,36 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { VSBuffer } from '../../../base/common/buffer.js';
-import { Disposable, IDisposable } from '../../../base/common/lifecycle.js';
-import { URI, UriComponents } from '../../../base/common/uri.js';
-import { ExtensionIdentifier } from '../../../platform/extensions/common/extensions.js';
-import { IChatOutputRendererService } from '../../contrib/chat/browser/chatOutputItemRenderer.js';
-import { IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
-import { ExtHostChatOutputRendererShape, ExtHostContext, MainThreadChatOutputRendererShape } from '../common/extHost.protocol.js';
-import { MainThreadWebviews } from './mainThreadWebviews.js';
+import { Event } from '../../../base/common/event.js';
+import { extHostNamedCustomer } from '../../services/extensions/common/extHostCustomers.js';
+import { MainContext } from '../common/extHost.protocol.js';
 
-export class MainThreadChatOutputRenderer extends Disposable implements MainThreadChatOutputRendererShape {
+const noop = () => undefined;
 
-	private readonly _proxy: ExtHostChatOutputRendererShape;
+function withNoAiFallback<T extends object>(target: T): T {
+	return new Proxy(target, {
+		get(obj, prop, receiver) {
+			if (Reflect.has(obj, prop)) {
+				return Reflect.get(obj, prop, receiver);
+			}
 
-	private _webviewHandlePool = 0;
+			if (typeof prop === 'string' && (prop.startsWith('onDid') || prop.startsWith('onWill'))) {
+				return Event.None;
+			}
 
-	private readonly registeredRenderers = new Map</* viewType */ string, IDisposable>();
+			return noop;
+		},
+	});
+}
 
-	constructor(
-		extHostContext: IExtHostContext,
-		private readonly _mainThreadWebview: MainThreadWebviews,
-		@IChatOutputRendererService private readonly _rendererService: IChatOutputRendererService,
-	) {
-		super();
-		this._proxy = extHostContext.getProxy(ExtHostContext.ExtHostChatOutputRenderer);
+@extHostNamedCustomer(MainContext.MainThreadChatOutputRenderer)
+export class MainThreadChatOutputRenderer {
+
+	constructor() {
+		return withNoAiFallback(this);
 	}
 
-	override dispose(): void {
-		super.dispose();
-
-		this.registeredRenderers.forEach(disposable => disposable.dispose());
-		this.registeredRenderers.clear();
-	}
-
-	$registerChatOutputRenderer(viewType: string, extensionId: ExtensionIdentifier, extensionLocation: UriComponents): void {
-		this._rendererService.registerRenderer(viewType, {
-			renderOutputPart: async (mime, data, webview, token) => {
-				const webviewHandle = `chat-output-${++this._webviewHandlePool}`;
-
-				this._mainThreadWebview.addWebview(webviewHandle, webview, {
-					serializeBuffersForPostMessage: true,
-				});
-
-				return this._proxy.$renderChatOutput(viewType, mime, VSBuffer.wrap(data), webviewHandle, token);
-			},
-		}, {
-			extension: { id: extensionId, location: URI.revive(extensionLocation) }
-		});
-	}
-
-	$unregisterChatOutputRenderer(viewType: string): void {
-		this.registeredRenderers.get(viewType)?.dispose();
+	dispose(): void {
+		return;
 	}
 }
