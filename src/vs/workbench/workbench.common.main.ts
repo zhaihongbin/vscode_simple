@@ -92,6 +92,7 @@ import './services/userDataProfile/browser/userDataProfileManagement.js';
 import './services/userDataProfile/common/remoteUserDataProfiles.js';
 import './services/remote/common/remoteExplorerService.js';
 import './services/remote/common/remoteExtensionsScanner.js';
+import './services/terminal/common/embedderTerminalService.js';
 import './services/workingCopy/common/workingCopyService.js';
 import './services/workingCopy/common/workingCopyFileService.js';
 import './services/workingCopy/common/workingCopyEditorService.js';
@@ -203,6 +204,14 @@ import './contrib/git/browser/git.contributions.js';
 // Source Control
 import './contrib/scm/browser/scm.contribution.js';
 
+// Debug
+import './contrib/debug/browser/debug.contribution.js';
+import './contrib/debug/browser/debugEditorContribution.js';
+import './contrib/debug/browser/breakpointEditorContribution.js';
+import './contrib/debug/browser/callStackEditorContribution.js';
+import './contrib/debug/browser/repl.js';
+import './contrib/debug/browser/debugViewlet.js';
+
 // Extensions
 import './contrib/extensions/browser/extensions.contribution.js';
 
@@ -236,6 +245,9 @@ import './contrib/externalUriOpener/common/externalUriOpener.contribution.js';
 // Output View
 import './contrib/output/browser/output.contribution.js';
 import './contrib/output/browser/outputView.js';
+
+// Terminal
+import './contrib/terminal/terminal.all.js';
 
 // Relauncher
 import './contrib/relauncher/browser/relauncher.contribution.js';

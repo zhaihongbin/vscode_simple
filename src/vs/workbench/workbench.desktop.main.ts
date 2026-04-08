@@ -114,6 +114,12 @@ import './contrib/localization/electron-browser/localization.contribution.js';
 // Explorer
 import './contrib/files/electron-browser/fileActions.contribution.js';
 
+// Debug
+import './contrib/debug/electron-browser/extensionHostDebugService.js';
+
+// Extensions Management
+import './contrib/extensions/electron-browser/extensions.contribution.js';
+
 // Issues
 import './contrib/issue/electron-browser/issue.contribution.js';
 
@@ -122,6 +128,9 @@ import './contrib/processExplorer/electron-browser/processExplorer.contribution.
 
 // Remote
 import './contrib/remote/electron-browser/remote.contribution.js';
+
+// Terminal
+import './contrib/terminal/electron-browser/terminal.contribution.js';
 
 // Themes
 import './contrib/themes/browser/themes.test.contribution.js';
