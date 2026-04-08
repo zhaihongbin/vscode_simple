@@ -44,6 +44,62 @@ const glob = promisify(globCallback);
 const rcedit = promisify(rceditCallback);
 const root = path.dirname(import.meta.dirname);
 const commit = getVersion(root);
+const releaseDownloadUrl = 'https://github.com/zhaihongbin/vscode_simple/releases/latest';
+const releaseUpdateUrl = 'https://api.github.com/repos/zhaihongbin/vscode_simple/releases/latest?platform={platform}&quality={quality}';
+const releaseUpdateAssetPattern = { 'darwin-arm64': '^Code-OSS-darwin-arm64-.*\\.zip$' };
+
+function isTruthy(value: string | undefined): boolean {
+	return value === '1' || value?.toLowerCase() === 'true';
+}
+
+function getBranchFromRef(ref: string | undefined): string | undefined {
+	if (!ref) {
+		return undefined;
+	}
+
+	if (ref.startsWith('refs/heads/')) {
+		return ref.slice('refs/heads/'.length);
+	}
+
+	return ref;
+}
+
+function resolveBuildBranch(): string | undefined {
+	const fromEnv = process.env['VSCODE_BUILD_BRANCH']
+		?? process.env['GITHUB_REF_NAME']
+		?? getBranchFromRef(process.env['GITHUB_REF'])
+		?? getBranchFromRef(process.env['BUILD_SOURCEBRANCH']);
+
+	if (fromEnv) {
+		return fromEnv;
+	}
+
+	try {
+		return cp.execSync('git rev-parse --abbrev-ref HEAD', { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+	} catch {
+		return undefined;
+	}
+}
+
+function shouldEnableBuildUpdates(branch: string | undefined): boolean {
+	const override = process.env['VSCODE_SIMPLE_ENABLE_UPDATES'];
+	if (typeof override === 'string') {
+		return isTruthy(override);
+	}
+
+	if (isTruthy(process.env['DISABLE_AUTO_UPDATE'])) {
+		return false;
+	}
+
+	if (!branch) {
+		return false;
+	}
+
+	return branch === 'release' || branch.startsWith('release/');
+}
+
+const buildBranch = resolveBuildBranch();
+const enableBuildUpdates = shouldEnableBuildUpdates(buildBranch);
 
 // Build
 const vscodeEntryPoints = [
@@ -386,7 +442,25 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 
 		let productJsonContents: string;
 		const productJsonStream = gulp.src(['product.json'], { base: '.' })
-			.pipe(jsonEditor({ commit, date: readISODate(out), checksums, version }))
+			.pipe(jsonEditor((json: Record<string, unknown>) => {
+				Object.assign(json, { commit, date: readISODate(out), checksums, version });
+
+				if (enableBuildUpdates) {
+					Object.assign(json, {
+						downloadUrl: releaseDownloadUrl,
+						updateUrl: releaseUpdateUrl,
+						updateAssetPattern: releaseUpdateAssetPattern,
+						updateAllowPrerelease: false
+					});
+				} else {
+					delete json.downloadUrl;
+					delete json.updateUrl;
+					delete json.updateAssetPattern;
+					delete json.updateAllowPrerelease;
+				}
+
+				return json;
+			}))
 			.pipe(es.through(function (file) {
 				productJsonContents = file.contents.toString();
 				this.emit('data', file);

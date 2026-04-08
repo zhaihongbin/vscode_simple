@@ -4,12 +4,6 @@
 	"applicationName": "code-oss",
 	"dataFolderName": ".vscode-oss",
 	"quality": "stable",
-	"downloadUrl": "https://github.com/zhaihongbin/vscode_simple/releases/latest",
-	"updateUrl": "https://api.github.com/repos/zhaihongbin/vscode_simple/releases/latest?platform={platform}&quality={quality}",
-	"updateAssetPattern": {
-		"darwin-arm64": "^Code-OSS-darwin-arm64-.*\\.zip$"
-	},
-	"updateAllowPrerelease": false,
 	"win32MutexName": "vscodeoss",
 	"licenseName": "MIT",
 	"licenseUrl": "https://github.com/microsoft/vscode/blob/main/LICENSE.txt",
