@@ -61,7 +61,6 @@ import './services/encryption/browser/encryptionService.js';
 import './services/imageResize/browser/imageResizeService.js';
 import './services/secrets/browser/secretStorageService.js';
 import './services/workingCopy/browser/workingCopyBackupService.js';
-import './services/tunnel/browser/tunnelService.js';
 import './services/files/browser/elevatedFileService.js';
 import './services/workingCopy/browser/workingCopyHistoryService.js';
 import './services/userDataSync/browser/webUserDataSyncEnablementService.js';
@@ -136,9 +135,6 @@ import './contrib/performance/browser/performance.web.contribution.js';
 // Preferences
 import './contrib/preferences/browser/keyboardLayoutPicker.js';
 
-// Debug
-import './contrib/debug/browser/extensionHostDebugService.js';
-
 // Welcome Banner
 import './contrib/welcomeBanner/browser/welcomeBanner.contribution.js';
 
@@ -164,9 +160,6 @@ import './contrib/issue/browser/issue.contribution.js';
 
 // Splash
 import './contrib/splash/browser/splash.contribution.js';
-
-// Remote Start Entry for the Web
-import './contrib/remote/browser/remoteStartEntry.contribution.js';
 
 // Process Explorer
 import './contrib/processExplorer/browser/processExplorer.web.contribution.js';

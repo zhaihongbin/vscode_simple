@@ -74,12 +74,9 @@ import './services/environment/electron-browser/shellEnvironmentService.js';
 import './services/integrity/electron-browser/integrityService.js';
 import './services/workingCopy/electron-browser/workingCopyBackupService.js';
 import './services/checksum/electron-browser/checksumService.js';
-import '../platform/remote/electron-browser/sharedProcessTunnelService.js';
-import './services/tunnel/electron-browser/tunnelService.js';
 import '../platform/diagnostics/electron-browser/diagnosticsService.js';
 import '../platform/profiling/electron-browser/profilingService.js';
 import '../platform/telemetry/electron-browser/customEndpointTelemetryService.js';
-import '../platform/remoteTunnel/electron-browser/remoteTunnelService.js';
 import './services/files/electron-browser/elevatedFileService.js';
 import './services/search/electron-browser/searchService.js';
 import './services/workingCopy/electron-browser/workingCopyHistoryService.js';
@@ -118,9 +115,6 @@ import './contrib/files/electron-browser/fileActions.contribution.js';
 // CodeEditor Contributions
 import './contrib/codeEditor/electron-browser/codeEditor.contribution.js';
 
-// Debug
-import './contrib/debug/electron-browser/extensionHostDebugService.js';
-
 // Extensions Management
 import './contrib/extensions/electron-browser/extensions.contribution.js';
 
@@ -129,9 +123,6 @@ import './contrib/issue/electron-browser/issue.contribution.js';
 
 // Process Explorer
 import './contrib/processExplorer/electron-browser/processExplorer.contribution.js';
-
-// Remote
-import './contrib/remote/electron-browser/remote.contribution.js';
 
 // Terminal
 import './contrib/terminal/electron-browser/terminal.contribution.js';
@@ -171,9 +162,6 @@ import './contrib/mergeEditor/electron-browser/mergeEditor.contribution.js';
 
 // Multi Diff Editor
 import './contrib/multiDiffEditor/browser/multiDiffEditor.contribution.js';
-
-// Remote Tunnel
-import './contrib/remoteTunnel/electron-browser/remoteTunnel.contribution.js';
 
 // Encryption
 import './contrib/encryption/electron-browser/encryption.contribution.js';

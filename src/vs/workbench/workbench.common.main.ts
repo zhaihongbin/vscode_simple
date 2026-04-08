@@ -90,9 +90,6 @@ import './services/notification/common/notificationService.js';
 import './services/userDataSync/common/userDataSyncUtil.js';
 import './services/userDataProfile/browser/userDataProfileImportExportService.js';
 import './services/userDataProfile/browser/userDataProfileManagement.js';
-import './services/userDataProfile/common/remoteUserDataProfiles.js';
-import './services/remote/common/remoteExplorerService.js';
-import './services/remote/common/remoteExtensionsScanner.js';
 import './services/terminal/common/embedderTerminalService.js';
 import './services/workingCopy/common/workingCopyService.js';
 import './services/workingCopy/common/workingCopyFileService.js';
@@ -233,14 +230,6 @@ import './contrib/git/browser/git.contributions.js';
 // Source Control
 import './contrib/scm/browser/scm.contribution.js';
 
-// Debug
-import './contrib/debug/browser/debug.contribution.js';
-import './contrib/debug/browser/debugEditorContribution.js';
-import './contrib/debug/browser/breakpointEditorContribution.js';
-import './contrib/debug/browser/callStackEditorContribution.js';
-import './contrib/debug/browser/repl.js';
-import './contrib/debug/browser/debugViewlet.js';
-
 // Markers
 import './contrib/markers/browser/markers.contribution.js';
 
@@ -290,10 +279,6 @@ import './contrib/relauncher/browser/relauncher.contribution.js';
 
 // Tasks
 import './contrib/tasks/browser/task.contribution.js';
-
-// Remote
-import './contrib/remote/common/remote.contribution.js';
-import './contrib/remote/browser/remote.contribution.js';
 
 // Emmet
 import './contrib/emmet/browser/emmet.contribution.js';
