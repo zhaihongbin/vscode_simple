@@ -4,6 +4,11 @@ on:
   release:
     types:
       - published
+  workflow_run:
+    workflows:
+      - Release Versioning
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       release_tag:
@@ -17,6 +22,12 @@ permissions:
 jobs:
   package-darwin-arm64:
     name: Build Darwin ARM64 Package
+    if: >
+      github.event_name == 'release' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'release')
     runs-on: macos-14
     timeout-minutes: 180
     env:
@@ -33,36 +44,58 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "release" ]; then
             RELEASE_TAG="${{ github.event.release.tag_name }}"
-          else
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             RELEASE_TAG="${{ github.event.inputs.release_tag }}"
+          else
+            HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
+            git fetch --tags --force
+            RELEASE_TAG="$(git tag --points-at "$HEAD_SHA" | grep '^v' | sort -V | tail -n 1)"
           fi
 
           if [ -z "$RELEASE_TAG" ]; then
-            echo "release tag is empty"
-            exit 1
+            echo "No semver tag found for this run, skip packaging."
+            echo "SKIP_PACKAGE=1" >> "$GITHUB_ENV"
+            exit 0
           fi
 
           echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
           echo "RELEASE_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
 
+      - name: Check Release Exists
+        if: env.SKIP_PACKAGE != '1'
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${RELEASE_TAG}")
+          if [ "$STATUS" != "200" ]; then
+            echo "Release for tag ${RELEASE_TAG} not found yet, skip packaging."
+            echo "SKIP_PACKAGE=1" >> "$GITHUB_ENV"
+          fi
+
       - name: Checkout Release Tag
+        if: env.SKIP_PACKAGE != '1'
         run: |
           git fetch --tags --force
           git checkout "tags/${RELEASE_TAG}"
 
       - name: Setup Node.js
+        if: env.SKIP_PACKAGE != '1'
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
 
       - name: Install Dependencies
+        if: env.SKIP_PACKAGE != '1'
         run: npm ci
 
       - name: Build Package
+        if: env.SKIP_PACKAGE != '1'
         run: npm run gulp -- vscode-darwin-arm64-min
 
       - name: Create ZIP Artifact
+        if: env.SKIP_PACKAGE != '1'
         run: |
           BUILD_DIR="../VSCode-darwin-arm64"
           APP_PATH="$BUILD_DIR/Code - OSS.app"
@@ -76,6 +109,7 @@ jobs:
           echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_ENV"
 
       - name: Upload Asset To Release
+        if: env.SKIP_PACKAGE != '1'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
@@ -84,6 +118,7 @@ jobs:
           fail_on_unmatched_files: true
 
       - name: Upload Artifact
+        if: env.SKIP_PACKAGE != '1'
         uses: actions/upload-artifact@v4
         with:
           name: code-oss-darwin-arm64-${{ env.RELEASE_TAG }}
