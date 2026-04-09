@@ -81,6 +81,32 @@ function resolveBuildBranch(): string | undefined {
 	}
 }
 
+function isReleaseBranch(branch: string | undefined): boolean {
+	if (!branch) {
+		return false;
+	}
+
+	return branch === 'release' || branch.startsWith('release/');
+}
+
+function toSemverIdentifier(value: string): string {
+	return value
+		.toLowerCase()
+		.replace(/[^0-9a-z-]+/g, '-')
+		.replace(/-+/g, '-')
+		.replace(/^-|-$/g, '');
+}
+
+function getNonReleaseVersionSuffix(branch: string | undefined, buildCommit: string | undefined): string {
+	const branchPart = toSemverIdentifier(branch ?? 'local') || 'local';
+	const commitPart = toSemverIdentifier((buildCommit ?? '').slice(0, 7));
+	return commitPart ? `dev.${branchPart}.${commitPart}` : `dev.${branchPart}`;
+}
+
+function appendPrereleaseSuffix(version: string, suffix: string): string {
+	return version.includes('-') ? `${version}.${suffix}` : `${version}-${suffix}`;
+}
+
 function shouldEnableBuildUpdates(branch: string | undefined): boolean {
 	const override = process.env['VSCODE_SIMPLE_ENABLE_UPDATES'];
 	if (typeof override === 'string') {
@@ -95,7 +121,7 @@ function shouldEnableBuildUpdates(branch: string | undefined): boolean {
 		return false;
 	}
 
-	return branch === 'release' || branch.startsWith('release/');
+	return isReleaseBranch(branch);
 }
 
 const buildBranch = resolveBuildBranch();
@@ -421,11 +447,15 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		let version = packageJson.version;
 		const quality = (product as { quality?: string }).quality;
 
-		if (quality && quality !== 'stable') {
-			version += '-' + quality;
-		}
+			if (quality && quality !== 'stable') {
+				version += '-' + quality;
+			}
 
-		const name = product.nameShort;
+			if (!isReleaseBranch(buildBranch)) {
+				version = appendPrereleaseSuffix(version, getNonReleaseVersionSuffix(buildBranch, commit));
+			}
+
+			const name = product.nameShort;
 		const packageJsonUpdates: Record<string, unknown> = { name, version };
 
 		if (platform === 'linux') {
