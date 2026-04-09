@@ -8,18 +8,105 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
+
+concurrency:
+  group: release-versioning-release
+  cancel-in-progress: false
 
 jobs:
-  release-please:
-    name: Generate SemVer Release PR
+  direct-release:
+    name: Bump Version, Tag, And Publish Release
+    if: github.event_name == 'workflow_dispatch' || github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
-      - name: Run release-please
-        uses: googleapis/release-please-action@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          target-branch: release
-          release-type: node
-          package-name: code-oss-dev
-          include-component-in-tag: false
+          fetch-depth: 0
+          ref: release
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Configure Git User
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Compute Next Version
+        run: |
+          LATEST_TAG="$(git tag --list 'v[0-9]*' | sort -V | tail -n 1)"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          LATEST_VERSION="${LATEST_TAG#v}"
+
+          BASE_VERSION="$(node - "$PACKAGE_VERSION" "$LATEST_VERSION" <<'NODE'
+          const packageVersion = process.argv[2] ?? '';
+          const latestVersion = process.argv[3] ?? '';
+
+          function parse(v) {
+            const m = v.match(/^(\d+)\.(\d+)\.(\d+)/);
+            return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+          }
+
+          function compare(a, b) {
+            for (let i = 0; i < 3; i++) {
+              if (a[i] > b[i]) return 1;
+              if (a[i] < b[i]) return -1;
+            }
+            return 0;
+          }
+
+          const p = parse(packageVersion);
+          const l = parse(latestVersion);
+
+          if (p && l) {
+            console.log(compare(p, l) >= 0 ? packageVersion : latestVersion);
+          } else if (p) {
+            console.log(packageVersion);
+          } else if (l) {
+            console.log(latestVersion);
+          } else {
+            console.log('1.0.0');
+          }
+          NODE
+          )"
+
+          NEXT_VERSION="$(node - "$BASE_VERSION" <<'NODE'
+          const base = process.argv[2] ?? '';
+          const m = base.match(/^(\d+)\.(\d+)\.(\d+)(?:-.+)?$/);
+          if (!m) {
+            throw new Error(`Invalid base version: ${base}`);
+          }
+          console.log(`${m[1]}.${m[2]}.${Number(m[3]) + 1}`);
+          NODE
+          )"
+
+          echo "BASE_VERSION=$BASE_VERSION" >> "$GITHUB_ENV"
+          echo "NEXT_VERSION=$NEXT_VERSION" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=v$NEXT_VERSION" >> "$GITHUB_ENV"
+          echo "Computed next version: $NEXT_VERSION (base: $BASE_VERSION)"
+
+      - name: Bump Version Files
+        run: npm version --no-git-tag-version "$NEXT_VERSION"
+
+      - name: Commit And Tag
+        run: |
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "No version file changes detected."
+            exit 1
+          fi
+          git commit -m "chore(release): v${NEXT_VERSION} [skip ci]"
+          git tag "v${NEXT_VERSION}"
+
+      - name: Push Commit And Tag
+        run: git push origin HEAD:release --follow-tags
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          generate_release_notes: true
+          make_latest: true

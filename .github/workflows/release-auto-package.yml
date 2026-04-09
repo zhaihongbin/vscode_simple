@@ -4,11 +4,6 @@ on:
   release:
     types:
       - published
-  workflow_run:
-    workflows:
-      - Release Versioning
-    types:
-      - completed
   workflow_dispatch:
 
 permissions:
@@ -19,10 +14,7 @@ jobs:
     name: Build Darwin ARM64 Package
     if: >
       github.event_name == 'release' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'release')
+      github.event_name == 'workflow_dispatch'
     runs-on: macos-14
     timeout-minutes: 180
     env:
@@ -42,9 +34,6 @@ jobs:
 
           if [ "${{ github.event_name }}" = "release" ]; then
             RELEASE_TAG="${{ github.event.release.tag_name }}"
-          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
-            HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
-            RELEASE_TAG="$(git tag --points-at "$HEAD_SHA" | grep -E '^v[0-9]' | sort -V | tail -n 1)"
           fi
 
           if [ -z "$RELEASE_TAG" ]; then
