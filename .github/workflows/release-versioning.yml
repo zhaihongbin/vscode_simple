@@ -16,7 +16,9 @@ concurrency:
 jobs:
   direct-release:
     name: Bump Version, Tag, And Publish Release
-    if: github.event_name == 'workflow_dispatch' || github.actor != 'github-actions[bot]'
+    if: >
+      (github.event_name == 'workflow_dispatch' && github.ref_name == 'release') ||
+      (github.event_name == 'push' && github.actor != 'github-actions[bot]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
