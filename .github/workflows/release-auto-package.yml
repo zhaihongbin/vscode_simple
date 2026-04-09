@@ -43,20 +43,38 @@ jobs:
         run: |
           git fetch --tags --force
           RELEASE_TAG=""
+          SEMVER_REGEX='^v[0-9]+\.[0-9]+\.[0-9]+$'
+
+          latest_semver_tag() {
+            git tag --list 'v*' | grep -E "$SEMVER_REGEX" | sort -V | tail -n 1 || true
+          }
 
           if [ "${{ github.event_name }}" = "release" ]; then
             RELEASE_TAG="${{ github.event.release.tag_name }}"
           elif [ "${{ github.event_name }}" = "workflow_run" ]; then
             HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
-            RELEASE_TAG="$(git tag --points-at "$HEAD_SHA" | grep -E '^v[0-9]' | sort -V | tail -n 1)"
+            for i in {1..20}; do
+              git fetch --tags --force
+              RELEASE_TAG="$(git tag --points-at "$HEAD_SHA" | grep -E "$SEMVER_REGEX" | sort -V | tail -n 1 || true)"
+              if [ -n "$RELEASE_TAG" ]; then
+                break
+              fi
+              echo "No semver tag found on workflow_run head_sha yet (attempt $i/20). Retrying..."
+              sleep 3
+            done
           fi
 
-          if [ -z "$RELEASE_TAG" ]; then
-            RELEASE_TAG="$(git tag --list 'v[0-9]*' | sort -V | tail -n 1)"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -z "$RELEASE_TAG" ]; then
+            RELEASE_TAG="$(latest_semver_tag)"
           fi
 
           if [ -z "$RELEASE_TAG" ]; then
             echo "::error::No semver tag found (expected tag like v1.0.0)."
+            exit 1
+          fi
+
+          if ! echo "$RELEASE_TAG" | grep -Eq "$SEMVER_REGEX"; then
+            echo "::error::Resolved tag is not semver: $RELEASE_TAG"
             exit 1
           fi
 
@@ -95,7 +113,9 @@ jobs:
             "https://api.github.com/repos/${{ github.repository }}/releases/tags/${RELEASE_TAG}")"
 
           EXPECTED_ASSET="Code-OSS-darwin-arm64-${RELEASE_TAG}.zip"
-          HAS_ASSET="$(node -e "const fs=require('fs'); const release=JSON.parse(fs.readFileSync(0,'utf8')); const expected=process.argv[1]; process.stdout.write(String(Array.isArray(release.assets) && release.assets.some(a => a && a.name === expected)));" "$EXPECTED_ASSET" <<<"$RELEASE_JSON")"
+          echo "Checking release asset presence for tag ${RELEASE_TAG}, expected asset: ${EXPECTED_ASSET}"
+          HAS_ASSET="$(node -e "const fs=require('fs'); const input=fs.readFileSync(0,'utf8'); let release={}; try { release=JSON.parse(input); } catch { process.stdout.write('false'); process.exit(0); } const expected=process.argv[1]; const assets=Array.isArray(release.assets)?release.assets:[]; process.stdout.write(String(assets.some(a => a && a.name === expected)));" "$EXPECTED_ASSET" <<<"$RELEASE_JSON")"
+          echo "HAS_ASSET=${HAS_ASSET}"
 
           if [ "$HAS_ASSET" = "true" ]; then
             echo "Release already has ${EXPECTED_ASSET}, skip duplicate packaging."
