@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/zhaihongbin/vscode_simple/compare/v1.0.1...v1.1.0) (2026-04-09)
+
+
+### Features
+
+* **noai:** 升级主版本并为非release构建追加dev后缀 ([be2498b](https://github.com/zhaihongbin/vscode_simple/commit/be2498bb4512c08d37642e2537c05bdd1cb2adc5))
+* **noai:** 调整主版本到1.999.0以提升扩展兼容性 ([af815c7](https://github.com/zhaihongbin/vscode_simple/commit/af815c7d80cbfb13656d383eff282dbce902f0e9))
+
+
+### Bug Fixes
+
+* **noai:** 发布流程增加重签与验签步骤 ([b83ec37](https://github.com/zhaihongbin/vscode_simple/commit/b83ec37204e2bbf54024c9b92431d5c300873200))
+
 ## [1.0.1](https://github.com/zhaihongbin/vscode_simple/compare/v1.0.0...v1.0.1) (2026-04-08)
 
 
