@@ -4,17 +4,29 @@ on:
   release:
     types:
       - published
+  workflow_run:
+    workflows:
+      - Release Versioning
+    types:
+      - completed
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release-auto-package
+  cancel-in-progress: false
 
 jobs:
   package-darwin-arm64:
     name: Build Darwin ARM64 Package
     if: >
       github.event_name == 'release' ||
-      github.event_name == 'workflow_dispatch'
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'release')
     runs-on: macos-14
     timeout-minutes: 180
     env:
@@ -34,6 +46,9 @@ jobs:
 
           if [ "${{ github.event_name }}" = "release" ]; then
             RELEASE_TAG="${{ github.event.release.tag_name }}"
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
+            RELEASE_TAG="$(git tag --points-at "$HEAD_SHA" | grep -E '^v[0-9]' | sort -V | tail -n 1)"
           fi
 
           if [ -z "$RELEASE_TAG" ]; then
@@ -67,24 +82,51 @@ jobs:
           echo "::error::Release ${RELEASE_TAG} is still unavailable after waiting."
           exit 1
 
+      - name: Skip If Asset Already Exists
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual run: always build and upload."
+            exit 0
+          fi
+
+          RELEASE_JSON="$(curl -s \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${RELEASE_TAG}")"
+
+          EXPECTED_ASSET="Code-OSS-darwin-arm64-${RELEASE_TAG}.zip"
+          HAS_ASSET="$(node -e "const fs=require('fs'); const release=JSON.parse(fs.readFileSync(0,'utf8')); const expected=process.argv[1]; process.stdout.write(String(Array.isArray(release.assets) && release.assets.some(a => a && a.name === expected)));" "$EXPECTED_ASSET" <<<"$RELEASE_JSON")"
+
+          if [ "$HAS_ASSET" = "true" ]; then
+            echo "Release already has ${EXPECTED_ASSET}, skip duplicate packaging."
+            echo "SKIP_PACKAGE=1" >> "$GITHUB_ENV"
+          else
+            echo "No packaged asset found for ${RELEASE_TAG}, continue."
+          fi
+
       - name: Checkout Release Tag
+        if: env.SKIP_PACKAGE != '1'
         run: |
           git fetch --tags --force
           git checkout "tags/${RELEASE_TAG}"
 
       - name: Setup Node.js
+        if: env.SKIP_PACKAGE != '1'
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
 
       - name: Install Dependencies
+        if: env.SKIP_PACKAGE != '1'
         run: npm ci
 
       - name: Build Package
+        if: env.SKIP_PACKAGE != '1'
         run: npm run gulp -- vscode-darwin-arm64-min
 
       - name: Re-sign App Bundle (Ad-hoc)
+        if: env.SKIP_PACKAGE != '1'
         run: |
           APP_PATH="../VSCode-darwin-arm64/Code - OSS.app"
           if [ ! -d "$APP_PATH" ]; then
@@ -95,6 +137,7 @@ jobs:
           codesign --force --deep --sign - --timestamp=none "$APP_PATH"
 
       - name: Verify App Code Signature
+        if: env.SKIP_PACKAGE != '1'
         run: |
           APP_PATH="../VSCode-darwin-arm64/Code - OSS.app"
           if [ ! -d "$APP_PATH" ]; then
@@ -105,6 +148,7 @@ jobs:
           codesign -dv --verbose=4 "$APP_PATH" 2>&1 | sed -n '1,25p'
 
       - name: Create ZIP Artifact
+        if: env.SKIP_PACKAGE != '1'
         run: |
           BUILD_DIR="../VSCode-darwin-arm64"
           APP_PATH="$BUILD_DIR/Code - OSS.app"
@@ -118,6 +162,7 @@ jobs:
           echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_ENV"
 
       - name: Upload Asset To Release
+        if: env.SKIP_PACKAGE != '1'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
@@ -126,6 +171,7 @@ jobs:
           fail_on_unmatched_files: true
 
       - name: Upload Artifact
+        if: env.SKIP_PACKAGE != '1'
         uses: actions/upload-artifact@v4
         with:
           name: code-oss-darwin-arm64-${{ env.RELEASE_TAG }}
