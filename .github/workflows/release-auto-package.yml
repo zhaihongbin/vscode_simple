@@ -49,6 +49,14 @@ jobs:
             git tag --list 'v*' | grep -E "$SEMVER_REGEX" | sort -V | tail -n 1 || true
           }
 
+          tag_for_sha() {
+            local sha="$1"
+            if [ -z "$sha" ]; then
+              return 0
+            fi
+            git tag --points-at "$sha" | grep -E "$SEMVER_REGEX" | sort -V | tail -n 1 || true
+          }
+
           latest_semver_release_tag_from_api() {
             curl -s \
               -H "Authorization: Bearer $GH_TOKEN" \
@@ -72,21 +80,28 @@ jobs:
           if [ "${{ github.event_name }}" = "release" ]; then
             RELEASE_TAG="${{ github.event.release.tag_name }}"
           elif [ "${{ github.event_name }}" = "workflow_run" ]; then
-            HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
+            UPSTREAM_HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
+            RUN_SHA="${{ github.sha }}"
+            echo "workflow_run.head_sha=${UPSTREAM_HEAD_SHA}"
+            echo "github.sha=${RUN_SHA}"
+
             for i in {1..20}; do
               git fetch --tags --force
-              RELEASE_TAG="$(git tag --points-at "$HEAD_SHA" | grep -E "$SEMVER_REGEX" | sort -V | tail -n 1 || true)"
-              if [ -n "$RELEASE_TAG" ]; then
-                break
-              fi
-              echo "No semver tag found on workflow_run head_sha yet (attempt $i/20). Retrying..."
+              for CANDIDATE_SHA in "$RUN_SHA" "$UPSTREAM_HEAD_SHA"; do
+                RELEASE_TAG="$(tag_for_sha "$CANDIDATE_SHA")"
+                if [ -n "$RELEASE_TAG" ]; then
+                  echo "Resolved tag ${RELEASE_TAG} from sha ${CANDIDATE_SHA} (attempt $i/20)."
+                  break 2
+                fi
+              done
+              echo "No semver tag found on workflow_run candidate SHAs yet (attempt $i/20). Retrying..."
               sleep 3
             done
 
             if [ -z "$RELEASE_TAG" ]; then
               CANDIDATE_TAG="$(latest_semver_release_tag_from_api)"
               CANDIDATE_SHA="$(tag_commit_sha_from_api "$CANDIDATE_TAG")"
-              if [ -n "$CANDIDATE_TAG" ] && [ "$CANDIDATE_SHA" = "$HEAD_SHA" ]; then
+              if [ -n "$CANDIDATE_TAG" ] && ([ "$CANDIDATE_SHA" = "$RUN_SHA" ] || [ "$CANDIDATE_SHA" = "$UPSTREAM_HEAD_SHA" ]); then
                 RELEASE_TAG="$CANDIDATE_TAG"
                 echo "Resolved release tag from Releases API fallback: $RELEASE_TAG"
               fi
