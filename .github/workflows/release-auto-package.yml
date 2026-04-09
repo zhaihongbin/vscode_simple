@@ -95,6 +95,26 @@ jobs:
       - name: Build Package
         run: npm run gulp -- vscode-darwin-arm64-min
 
+      - name: Re-sign App Bundle (Ad-hoc)
+        run: |
+          APP_PATH="../VSCode-darwin-arm64/Code - OSS.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "App not found: $APP_PATH"
+            exit 1
+          fi
+          echo "Re-signing app bundle: $APP_PATH"
+          codesign --force --deep --sign - --timestamp=none "$APP_PATH"
+
+      - name: Verify App Code Signature
+        run: |
+          APP_PATH="../VSCode-darwin-arm64/Code - OSS.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "App not found: $APP_PATH"
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          codesign -dv --verbose=4 "$APP_PATH" 2>&1 | sed -n '1,25p'
+
       - name: Create ZIP Artifact
         run: |
           BUILD_DIR="../VSCode-darwin-arm64"
