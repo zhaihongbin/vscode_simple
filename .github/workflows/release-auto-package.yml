@@ -1,0 +1,145 @@
+name: Release Auto Package
+
+on:
+  release:
+    types:
+      - published
+  workflow_run:
+    workflows:
+      - Release Versioning
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package-darwin-arm64:
+    name: Build Darwin ARM64 Package
+    if: >
+      github.event_name == 'release' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'release')
+    runs-on: macos-14
+    timeout-minutes: 180
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve Release Tag
+        run: |
+          git fetch --tags --force
+          RELEASE_TAG=""
+
+          if [ "${{ github.event_name }}" = "release" ]; then
+            RELEASE_TAG="${{ github.event.release.tag_name }}"
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
+            RELEASE_TAG="$(git tag --points-at "$HEAD_SHA" | grep -E '^v[0-9]' | sort -V | tail -n 1)"
+          fi
+
+          if [ -z "$RELEASE_TAG" ]; then
+            RELEASE_TAG="$(git tag --list 'v[0-9]*' | sort -V | tail -n 1)"
+          fi
+
+          if [ -z "$RELEASE_TAG" ]; then
+            echo "::error::No semver tag found (expected tag like v1.0.0)."
+            exit 1
+          fi
+
+          echo "Resolved release tag: $RELEASE_TAG"
+          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
+          echo "RELEASE_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
+
+      - name: Wait For Release Visibility
+        run: |
+          for i in {1..15}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/tags/${RELEASE_TAG}")
+            if [ "$STATUS" = "200" ]; then
+              echo "Release ${RELEASE_TAG} is now available."
+              exit 0
+            fi
+            echo "Release ${RELEASE_TAG} not visible yet (attempt $i/15, status=$STATUS). Retrying..."
+            sleep 6
+          done
+
+          echo "::error::Release ${RELEASE_TAG} is still unavailable after waiting."
+          exit 1
+
+      - name: Checkout Release Tag
+        run: |
+          git fetch --tags --force
+          git checkout "tags/${RELEASE_TAG}"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Package
+        run: npm run gulp -- vscode-darwin-arm64-min
+
+      - name: Re-sign App Bundle (Ad-hoc)
+        run: |
+          APP_PATH="../VSCode-darwin-arm64/Code - OSS.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "App not found: $APP_PATH"
+            exit 1
+          fi
+          echo "Re-signing app bundle: $APP_PATH"
+          codesign --force --deep --sign - --timestamp=none "$APP_PATH"
+
+      - name: Verify App Code Signature
+        run: |
+          APP_PATH="../VSCode-darwin-arm64/Code - OSS.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "App not found: $APP_PATH"
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          codesign -dv --verbose=4 "$APP_PATH" 2>&1 | sed -n '1,25p'
+
+      - name: Create ZIP Artifact
+        run: |
+          BUILD_DIR="../VSCode-darwin-arm64"
+          APP_PATH="$BUILD_DIR/Code - OSS.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "App not found: $APP_PATH"
+            ls -la "$BUILD_DIR" || true
+            exit 1
+          fi
+          ZIP_NAME="Code-OSS-darwin-arm64-${RELEASE_TAG}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_NAME"
+          echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_ENV"
+
+      - name: Upload Asset To Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: ${{ env.ZIP_NAME }}
+          overwrite_files: true
+          fail_on_unmatched_files: true
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-oss-darwin-arm64-${{ env.RELEASE_TAG }}
+          path: ${{ env.ZIP_NAME }}
+          if-no-files-found: error
+          retention-days: 14
