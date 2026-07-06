@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Registry } from '../../platform/registry/common/platform.js';
+import { RunOnceScheduler } from '../../base/common/async.js';
 import { localize, localize2 } from '../../nls.js';
 import { MenuRegistry, MenuId, registerAction2 } from '../../platform/actions/common/actions.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope } from '../../platform/configuration/common/configurationRegistry.js';
@@ -12,11 +13,13 @@ import { isLinux, isMacintosh, isWindows } from '../../base/common/platform.js';
 import { ConfigureRuntimeArgumentsAction, ToggleDevToolsAction, ReloadWindowWithExtensionsDisabledAction, OpenUserDataFolderAction, ShowGPUInfoAction, ShowContentTracingAction, StopTracing, StartTracing } from './actions/developerActions.js';
 import { ZoomResetAction, ZoomOutAction, ZoomInAction, CloseWindowAction, SwitchWindowAction, QuickSwitchWindowAction, NewWindowTabHandler, ShowPreviousWindowTabHandler, ShowNextWindowTabHandler, MoveWindowTabToNewWindowHandler, MergeWindowTabsHandlerHandler, ToggleWindowTabsBarHandler, ToggleWindowAlwaysOnTopAction, DisableWindowAlwaysOnTopAction, EnableWindowAlwaysOnTopAction, CloseOtherWindowsAction } from './actions/windowActions.js';
 import { ContextKeyExpr } from '../../platform/contextkey/common/contextkey.js';
+import { IKeybindingService } from '../../platform/keybinding/common/keybinding.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../platform/keybinding/common/keybindingsRegistry.js';
 import { CommandsRegistry } from '../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../platform/instantiation/common/instantiation.js';
 import { IsMacContext } from '../../platform/contextkey/common/contextkeys.js';
 import { INativeHostService } from '../../platform/native/common/native.js';
+import { IStatusHandle, INotificationService } from '../../platform/notification/common/notification.js';
 import { IJSONContributionRegistry, Extensions as JSONExtensions } from '../../platform/jsonschemas/common/jsonContributionRegistry.js';
 import { IJSONSchema } from '../../base/common/jsonSchema.js';
 import { InstallShellScriptAction, UninstallShellScriptAction } from './actions/installActions.js';
@@ -32,6 +35,29 @@ import product from '../../platform/product/common/product.js';
 
 // Actions
 (function registerActions(): void {
+	const keyboardQuitConfirmationTimeout = 2000;
+	let keyboardQuitArmed = false;
+	let keyboardQuitStatusHandle: IStatusHandle | undefined;
+	const keyboardQuitResetScheduler = new RunOnceScheduler(() => {
+		keyboardQuitArmed = false;
+		keyboardQuitStatusHandle?.close();
+		keyboardQuitStatusHandle = undefined;
+	}, keyboardQuitConfirmationTimeout);
+
+	async function doQuit(accessor: ServicesAccessor): Promise<void> {
+		const nativeHostService = accessor.get(INativeHostService);
+		const configurationService = accessor.get(IConfigurationService);
+
+		const confirmBeforeClose = configurationService.getValue<'always' | 'never' | 'keyboardOnly'>('window.confirmBeforeClose');
+		if (confirmBeforeClose === 'always' || (confirmBeforeClose === 'keyboardOnly' && ModifierKeyEmitter.getInstance().isModifierPressed)) {
+			const confirmed = await NativeWindow.confirmOnShutdown(accessor, ShutdownReason.QUIT);
+			if (!confirmed) {
+				return; // quit prevented by user
+			}
+		}
+
+		nativeHostService.quit();
+	}
 
 	// Actions: Zoom
 	registerAction2(ZoomInAction);
@@ -71,22 +97,39 @@ import product from '../../platform/product/common/product.js';
 		id: 'workbench.action.quit',
 		weight: KeybindingWeight.WorkbenchContrib,
 		async handler(accessor: ServicesAccessor) {
-			const nativeHostService = accessor.get(INativeHostService);
-			const configurationService = accessor.get(IConfigurationService);
-
-			const confirmBeforeClose = configurationService.getValue<'always' | 'never' | 'keyboardOnly'>('window.confirmBeforeClose');
-			if (confirmBeforeClose === 'always' || (confirmBeforeClose === 'keyboardOnly' && ModifierKeyEmitter.getInstance().isModifierPressed)) {
-				const confirmed = await NativeWindow.confirmOnShutdown(accessor, ShutdownReason.QUIT);
-				if (!confirmed) {
-					return; // quit prevented by user
-				}
-			}
-
-			nativeHostService.quit();
+			await doQuit(accessor);
 		},
 		when: undefined,
-		mac: { primary: KeyMod.CtrlCmd | KeyCode.KeyQ },
 		linux: { primary: KeyMod.CtrlCmd | KeyCode.KeyQ }
+	});
+
+	KeybindingsRegistry.registerCommandAndKeybindingRule({
+		id: 'workbench.action.quitWithConfirmation',
+		weight: KeybindingWeight.WorkbenchContrib,
+		async handler(accessor: ServicesAccessor) {
+			if (keyboardQuitArmed) {
+				keyboardQuitResetScheduler.cancel();
+				keyboardQuitArmed = false;
+				keyboardQuitStatusHandle?.close();
+				keyboardQuitStatusHandle = undefined;
+				await doQuit(accessor);
+				return;
+			}
+
+			keyboardQuitArmed = true;
+			keyboardQuitStatusHandle?.close();
+			keyboardQuitStatusHandle = accessor.get(INotificationService).status(
+				localize(
+					'quitConfirmAgain',
+					"Press {0} again to quit.",
+					accessor.get(IKeybindingService).lookupKeybinding('workbench.action.quitWithConfirmation')?.getLabel() ?? 'Cmd+Q'
+				),
+				{ hideAfter: keyboardQuitConfirmationTimeout }
+			);
+			keyboardQuitResetScheduler.schedule();
+		},
+		when: undefined,
+		mac: { primary: KeyMod.CtrlCmd | KeyCode.KeyQ }
 	});
 
 	// Actions: macOS Native Tabs

@@ -177,7 +177,7 @@ export class NativeMenubarControl extends MenubarControl {
 	private getAdditionalKeybindings(): { [id: string]: IMenubarKeybinding } {
 		const keybindings: { [id: string]: IMenubarKeybinding } = {};
 		if (isMacintosh) {
-			const keybinding = this.getMenubarKeybinding('workbench.action.quit');
+			const keybinding = this.getMenubarKeybinding('workbench.action.quitWithConfirmation');
 			if (keybinding) {
 				keybindings['workbench.action.quit'] = keybinding;
 			}
