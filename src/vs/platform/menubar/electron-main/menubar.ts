@@ -425,6 +425,11 @@ export class Menubar extends Disposable {
 					!!BrowserWindow.getFocusedWindow() ||				// allow to quit when window has focus (fix for https://github.com/microsoft/vscode/issues/39191)
 					lastActiveWindow?.win?.isMinimized()				// allow to quit when window has no focus but is minimized (https://github.com/microsoft/vscode/issues/63000)
 				) {
+					if (item.userSettingsLabel && event.triggeredByAccelerator) {
+						this.runActionInRenderer({ type: 'keybinding', userSettingsLabel: item.userSettingsLabel });
+						return;
+					}
+
 					const confirmed = await this.confirmBeforeQuit(event);
 					if (confirmed) {
 						this.nativeHostMainService.quit(undefined);
